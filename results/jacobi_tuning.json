@@ -1,0 +1,47 @@
+[
+  {
+    "iters": 528,
+    "time": 3.048282,
+    "jacobi_steps": 1
+  },
+  {
+    "iters": 623,
+    "time": 3.9992,
+    "jacobi_steps": 2
+  },
+  {
+    "iters": 483,
+    "time": 3.58458,
+    "jacobi_steps": 4
+  },
+  {
+    "iters": 410,
+    "time": 3.465996,
+    "jacobi_steps": 6
+  },
+  {
+    "iters": 362,
+    "time": 3.433166,
+    "jacobi_steps": 8
+  },
+  {
+    "iters": 330,
+    "time": 3.463179,
+    "jacobi_steps": 10
+  },
+  {
+    "iters": 302,
+    "time": 3.474815,
+    "jacobi_steps": 12
+  },
+  {
+    "iters": 264,
+    "time": 3.60355,
+    "jacobi_steps": 16
+  },
+  {
+    "iters": 238,
+    "time": 3.842955,
+    "jacobi_steps": 20
+  }
+]

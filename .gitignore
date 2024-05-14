@@ -1,0 +1,32 @@
+# Binaries
+CG
+PCG
+solver
+*.o
+*.out
+*.err
+
+# Build artifacts
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.cmake
+compile_commands.json
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+
+# Debug symbols
+*.dSYM/
+
+# IDE / tool config
+.claude/
+
+# System
+.DS_Store
+
+# Local notes
+notes.md

@@ -1,0 +1,44 @@
+[
+  {
+    "iters": 50,
+    "time": 0.801147,
+    "np": 1,
+    "grid": 2048,
+    "is_supplemental": false
+  },
+  {
+    "iters": 50,
+    "time": 0.325285,
+    "np": 4,
+    "grid": 2048,
+    "is_supplemental": false
+  },
+  {
+    "iters": 50,
+    "time": 0.388459,
+    "np": 9,
+    "grid": 2048,
+    "is_supplemental": false
+  },
+  {
+    "iters": 50,
+    "time": 0.272653,
+    "np": 16,
+    "grid": 2048,
+    "is_supplemental": false
+  },
+  {
+    "iters": 50,
+    "time": 0.169033,
+    "np": 25,
+    "grid": 2048,
+    "is_supplemental": false
+  },
+  {
+    "iters": 50,
+    "time": 0.148975,
+    "np": 36,
+    "grid": 2048,
+    "is_supplemental": true
+  }
+]
