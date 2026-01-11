@@ -22,6 +22,18 @@ Reformulated as the linear system $Ax = b$, where $A$ is the sparse Laplacian ma
 The solver iterates until the residual norm satisfies:
 $$ \|r_k\|_2 = \|b - Ax_k\|_2 < \epsilon $$
 
+### Algorithm Steps
+For the $k$-th iteration:
+1.  Calculate step size:
+    $$ \alpha_k = \frac{r_k^T r_k}{p_k^T A p_k} $$
+2.  Update solution and residual:
+    $$ x_{k+1} = x_k + \alpha_k p_k $$
+    $$ r_{k+1} = r_k - \alpha_k A p_k $$
+3.  Calculate search direction correction:
+    $$ \beta_k = \frac{r_{k+1}^T r_{k+1}}{r_k^T r_k} $$
+4.  Update search direction:
+    $$ p_{k+1} = r_{k+1} + \beta_k p_k $$
+
 ## Parallel Strategy
 
 ### 1. Grid Partition
