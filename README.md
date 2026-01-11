@@ -6,13 +6,13 @@
 
 A scalable, parallel implementation of the **Conjugate Gradient (CG)** method for solving the 2D Poisson Equation on distributed memory systems. This project demonstrates high-performance computing (HPC) techniques including spatial domain decomposition, halo exchange, and global reduction optimizations.
 
-## 🚀 Key Features
+## Key Features
 
 *   **Domain Decomposition**: Splits the computational grid into process-local blocks ($N \times N$ subgrids) to enable **Weak Scaling**.
 *   **Halo Exchange**: Efficient boundary synchronization using `MPI_Sendrecv` to maintain stencil consistency across process boundaries.
 *   **Parallel Reduction**: Optimized global dot-products using `MPI_Allreduce` for calculating search directions ($\beta$) and step sizes ($\alpha$).
 
-## 📐 Mathematical Formulation
+## Mathematical Formulation
 
 The solver addresses the discretized Poisson equation:
 $$ -\nabla^2 u = f $$
@@ -22,7 +22,7 @@ Reformulated as the linear system $Ax = b$, where $A$ is the sparse Laplacian ma
 The solver iterates until the residual norm satisfies:
 $$ \|r_k\|_2 = \|b - Ax_k\|_2 < \epsilon $$
 
-## 📊 Parallel Strategy
+## Parallel Strategy
 
 ### 1. Grid Partition
 The global domain is partitioned into a $P \times Q$ cartesian topology, where each MPI rank owns a local sub-matrix.
