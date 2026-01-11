@@ -83,3 +83,14 @@ A Python-based PyTorch implementation (`src/gpu_solver.py`) is provided for Mac 
 pip install -r requirements.txt
 python3 src/gpu_solver.py --device mps --N 2000
 ```
+
+## 🔱 OpenAI Triton (Advanced)
+For NVIDIA GPU users, a custom **Triton Kernel** implementation (`src/triton_solver.py`) is included. It JIT-compiles the stencil operator into highly efficient PTX code, bypassing standard library overhead.
+
+```python
+# Kernel: 5-point stencil fusion
+@triton.jit
+def laplacian_kernel(x_ptr, y_ptr, n, BLOCK_SIZE: tl.constexpr):
+    # ... fused load/compute logic ...
+```
+*Requirement: NVIDIA GPU (CUDA).*
