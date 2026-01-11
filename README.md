@@ -68,14 +68,14 @@ Expected scalar field $u(x,y)$ for the test case $u_{exact} = x(1-x)y(1-y)$.
   <img src="docs/solution_viz.png" width="500" />
 </p>
 
-## 🍎 Mac Metal (GPU) Support
+## Mac Metal (GPU) Support
 A Python-based PyTorch implementation (`src/gpu_solver.py`) is provided for Mac users to leverage **Metal Performance Shaders (MPS)**.
 
 **Benchmark ($2000 \times 2000$ Grid)**:
 | Device | Precision | Time/Iter | Status |
 |--------|-----------|-----------|--------|
-| **Mac GPU (M-Series)** | FP32 | **8.4ms** | ✅ 45x Speedup |
-| **Mac GPU (M-Series)** | FP16 (Mixed) | 8.1ms | ⚠️ High Error |
+| **Mac GPU (M-Series)** | FP32 | **8.4ms** | 45x Speedup |
+| **Mac GPU (M-Series)** | FP16 (Mixed) | 8.1ms | High Error |
 | **CPU (1 Thread)** | FP32 | ~380ms | Baseline |
 
 ### Usage
