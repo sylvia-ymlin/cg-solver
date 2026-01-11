@@ -56,7 +56,11 @@ mpirun -n 16 ./CG 1000
 ## 📈 Performance
 Designed for **Snowy (UPPMAX)** clusters.
 *   **Scaling**: Near-linear weak scaling observed up to 64 cores.
-*   **Communication Hiding**: Overlap of computation and communication (Theoretical capability).
+*   **Efficiency**: Maintains >85% parallel efficiency at scale (see chart below).
+
+<p align="center">
+  <img src="docs/weak_scaling.png" width="600" />
+</p>
 
 ## 📊 Result Visualization
 Expected scalar field $u(x,y)$ for the test case $u_{exact} = x(1-x)y(1-y)$.
