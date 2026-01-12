@@ -203,6 +203,7 @@ int main(int argc, char **argv) {
 
   if (myid == 0) {
     printf("The norm of the vector g is %.10e.\n", sqrt(norm));
+    printf("Time: %f\n", max_exe_time);
   }
 
   free(d);

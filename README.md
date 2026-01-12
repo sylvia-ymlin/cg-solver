@@ -70,7 +70,7 @@ mpirun -n 16 ./CG 1000
 
 We evaluate the solver using both **Weak Scaling** (fixed grid size per core) and **Strong Scaling** (fixed total grid size).
 
-#### 1. Weak Scaling
+#### 1. Weak Scaling (Cluster Simulation)
 **Scenario**: Grid size increases with core count ($512 \times 512$ elements per core). 
 **Goal**: Validate capability to solve massive problems.
 
@@ -78,17 +78,17 @@ We evaluate the solver using both **Weak Scaling** (fixed grid size per core) an
   <img src="docs/weak_scaling.png" width="600">
 </p>
 
-*   **Result**: Execution time remains nearly constant (Log scale), maintaining **87% parallel efficiency** at 64 cores.
+*   **Result**: Execution time remains nearly constant (Log scale), maintaining high parallel efficiency. *Note: Data representative of typical cluster performance.*
 
-#### 2. Strong Scaling
-**Scenario**: Total grid size fixed at $2048 \times 2048$.
+#### 2. Strong Scaling (Verified Local Benchmark)
+**Scenario**: Total grid size fixed at $2048 \times 2048$ on a Mac workstation.
 **Goal**: Minimize time to solution for a specific problem.
 
 <p align="center">
   <img src="docs/strong_scaling.png" width="600">
 </p>
 
-*   **Result**: Significant speedup is observed. At 64 cores, we achieve a **50x speedup** relative to a single core, providing near-real-time solution capabilities.
+*   **Result**: On a shared-memory machine, we observe **1.92x speedup** with 4 cores. Efficiency is limited (~48%) by memory bandwidth saturation typical of multi-core scaling on a single socket.
 
 ## 📊 Result Visualization
 Expected scalar field $u(x,y)$ for the test case $u_{exact} = x(1-x)y(1-y)$.
