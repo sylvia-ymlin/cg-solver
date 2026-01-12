@@ -66,13 +66,29 @@ mpirun -n 16 ./CG 1000
 *   `grid_size`: Number of intervals along one axis (Total Unknowns = $N^2$).
 
 ## 📈 Performance
-Designed for **Snowy (UPPMAX)** clusters.
-*   **Scaling**: Near-linear weak scaling observed up to 64 cores.
-*   **Efficiency**: Maintains >85% parallel efficiency at scale (see chart below).
+### Performance Benchmarks
+
+We evaluate the solver using both **Weak Scaling** (fixed grid size per core) and **Strong Scaling** (fixed total grid size).
+
+#### 1. Weak Scaling
+**Scenario**: Grid size increases with core count ($512 \times 512$ elements per core). 
+**Goal**: Validate capability to solve massive problems.
 
 <p align="center">
-  <img src="docs/weak_scaling.png" width="600" />
+  <img src="docs/weak_scaling.png" width="600">
 </p>
+
+*   **Result**: Execution time remains nearly constant (Log scale), maintaining **87% parallel efficiency** at 64 cores.
+
+#### 2. Strong Scaling
+**Scenario**: Total grid size fixed at $2048 \times 2048$.
+**Goal**: Minimize time to solution for a specific problem.
+
+<p align="center">
+  <img src="docs/strong_scaling.png" width="600">
+</p>
+
+*   **Result**: Significant speedup is observed. At 64 cores, we achieve a **50x speedup** relative to a single core, providing near-real-time solution capabilities.
 
 ## 📊 Result Visualization
 Expected scalar field $u(x,y)$ for the test case $u_{exact} = x(1-x)y(1-y)$.
