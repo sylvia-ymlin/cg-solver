@@ -17,7 +17,7 @@ def plot_weak_scaling():
     # For weak scaling, Efficiency = T(1) / T(N) is a good metric if N is perfectly scaled.
     efficiency = ideal_time / real_time * 100
 
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(8, 6))
 
     color = 'tab:blue'
     ax1.set_xlabel('Number of Cores (MPI Ranks)')
@@ -26,6 +26,9 @@ def plot_weak_scaling():
     ax1.plot(cores, ideal_time, '--', color='gray', label='Ideal (Perfect Scaling)')
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.set_ylim(0, 1.5)
+    ax1.set_xscale('log', base=2)
+    ax1.set_xticks(cores)
+    ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
     ax1.grid(True, linestyle=':', alpha=0.6)
 
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
