@@ -21,15 +21,21 @@ def plot_weak_scaling():
 
     color = 'tab:blue'
     ax1.set_xlabel('Number of Cores (MPI Ranks)')
-    ax1.set_ylabel('Execution Time (Normalized)', color=color)
+    ax1.set_ylabel('Execution Time (Normalized) [Log Scale]', color=color)
     ax1.plot(cores, real_time, 'o-', color=color, label='Measured Time', linewidth=2)
     ax1.plot(cores, ideal_time, '--', color='gray', label='Ideal (Perfect Scaling)')
     ax1.tick_params(axis='y', labelcolor=color)
-    ax1.set_ylim(0, 1.5)
+    
+    # User requested log scale for Y and not starting from 0
+    ax1.set_yscale('log')
+    from matplotlib.ticker import ScalarFormatter
+    ax1.yaxis.set_major_formatter(ScalarFormatter()) # Format 10^0 as 1.0 etc
+    ax1.grid(True, linestyle=':', alpha=0.6, which="both") # Grid for minor ticks toowrap
+    
+    # Log scale X as well
     ax1.set_xscale('log', base=2)
     ax1.set_xticks(cores)
     ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-    ax1.grid(True, linestyle=':', alpha=0.6)
 
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     color = 'tab:green'
