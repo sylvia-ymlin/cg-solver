@@ -17,16 +17,29 @@ def generate_exact_solution(n=100):
     return X, Y, U
 
 def plot_solution():
-    X, Y, U = generate_exact_solution(200)
+    from mpl_toolkits.mplot3d import Axes3D
+    from matplotlib import cm
+
+    X, Y, U = generate_exact_solution(100)
     
-    plt.figure(figsize=(10, 8))
-    # Use a nice colormap (jet or viridis)
-    cp = plt.contourf(X, Y, U, 50, cmap='viridis')
-    plt.colorbar(cp, label='u(x,y)')
-    plt.title('Expected Solution: Poisson 2D\n$u(x,y) = x(1-x)y(1-y)$')
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.axis('equal')
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Plot the surface
+    surf = ax.plot_surface(X, Y, U, cmap='viridis',
+                          linewidth=0, antialiased=False, alpha=0.9)
+    
+    # Customize axis
+    ax.set_zlim(0, np.max(U)*1.2)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('u(x,y)')
+    ax.view_init(elev=30, azim=225)  # Preferred angle
+    
+    # Add a color bar which maps values to colors.
+    fig.colorbar(surf, shrink=0.5, aspect=5, label='u(x,y)')
+    
+    plt.title('Expected Solution: Poisson 2D\n$u(x,y) = x(1-x)y(1-y)$', fontsize=12)
     
     # Save
     plt.savefig('docs/solution_viz.png', dpi=300, bbox_inches='tight')
