@@ -258,21 +258,16 @@ Parallelization ($p \uparrow$) has diminishing returns ($1/\sqrt{p}$ or $\log p$
 
 To address the $O(n^3)$ total complexity bottleneck, we implemented a **Preconditioned Conjugate Gradient (PCG)** solver. 
 
-*   **Implementation**: We adopted a **Block-Jacobi** preconditioner. In our parallel setting, each process solves a local sub-problem independently at each iteration. To minimize the cost of the "solve" step ($Mz=r$), we use 5 iterations of a local Jacobi smoother as the approximate inverse.
-*   **Impact on Convergence**: Experimental data shows a significant reduction in iteration counts across all scales:
+*   **Implementation**: We adopted a **Block-Jacobi** preconditioner, accessible via the `-pcg` flag in the updated solver. Each process solves a local sub-problem independently. To minimize the cost of the "solve" step ($Mz=r$), we use 5 iterations of a local Jacobi smoother.
 
-| 128             | 143                 | 104                      | ~27%        |
-| 256             | 240                 | 165                      | ~31%        |
-| 512             | 460                 | 317                      | ~31%        |
-
-*   **Complexity Scaling ($O(n^3)$)**: To verify the overall efficiency, we measured the total solving time for PCG up to $n=2048$.
+*   **Comparative Numerical Scalability**: The primary benefit of preconditioning is the reduction of the iteration count, which effectively lowers the constant factor of the total complexity.
 
 <p align="center">
-  <img src="pcg_convergence_scaling.png" width="800">
+  <img src="cg_vs_pcg_iterations.png" width="800">
 </p>
 
-*   **Result**: The log-log fit shows a slope of **3.01**, perfectly matching the theoretical $O(n^3)$ complexity.
-*   **Complexity Insight**: While Block-Jacobi reduces the **constant factor** of the iteration count by ~30%, the complexity remains $O(n)$. However, this reduction directly translates to a 30% lower total solving time, assuming the overhead of the preconditioner (local smoothing) is kept low. This demonstrates that even simple parallel-friendly preconditioning can provide substantial performance gains compared to raw compute scaling.
+*   **Iteration Analysis**: As shown in the log-log plot, both solvers scale at $O(n)$, but the **PCG (Block-Jacobi)** maintains a significantly lower iteration count (approx. **30% reduction** across all $n$).
+*   **Total Complexity Insight**: While PCG reduces the iteration count, the total complexity remains $O(n^3)$. In this local Mac environment, the per-iteration cost of the 5 smoothing steps currently offsets the reduction in iterations, resulting in slightly higher wall-clock times ($T_{total} = k \cdot (T_{compute} + T_{comm})$). However, in high-latency cluster environments, reducing the number of global reductions ($k$) often leads to a net gain in total solving time.
 
 ### 7.2 Communication-Avoiding CG (CA-CG)
 *   **Goal**: Reduce the number of global reductions.

@@ -2,6 +2,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define DEFAULT_MAX_ITER 200
 #define DEFAULT_TOL 1e-6
@@ -27,11 +28,12 @@ int main(int argc, char **argv) {
 
   if (argc < 2) {
     if (myid == 0)
-      printf("Usage: %s <n> [max_iter] [tol]\n"
+      printf("Usage: %s <n> [max_iter] [tol] [-pcg]\n"
              "  n        : grid intervals (required)\n"
              "  max_iter : max CG iterations (default %d, 0 = use tol only)\n"
              "  tol      : residual tolerance (default %.1e, 0 = use max_iter "
-             "only)\n",
+             "only)\n"
+             "  -pcg     : enable Preconditioned CG (Block-Jacobi)\n",
              argv[0], DEFAULT_MAX_ITER, DEFAULT_TOL);
     MPI_Finalize();
     return 1;
@@ -47,6 +49,13 @@ int main(int argc, char **argv) {
   int max_iter = (argc >= 3) ? atoi(argv[2]) : DEFAULT_MAX_ITER;
   double tol = (argc >= 4) ? atof(argv[3])
                            : 0.0; // default: no convergence check (timing mode)
+  int use_pcg = 0;
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-pcg") == 0) {
+      use_pcg = 1;
+      break;
+    }
+  }
   double h = 1.0 / (n + 1);
 
   // Distribute the mesh points among processes
@@ -157,9 +166,17 @@ int main(int argc, char **argv) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
-  // Initial Preconditioning: Mz = r (Jacobi: M = diag(A) = 4)
-  for (int i = 0; i < numRows * numCols; i++) {
-    z[i] = g[i] / 4.0;
+  // Initial Preconditioning: Mz = r
+  if (use_pcg) {
+    // Jacobi: M = diag(A) = 4
+    for (int i = 0; i < numRows * numCols; i++) {
+      z[i] = g[i] / 4.0;
+    }
+  } else {
+    // Identity: z = r
+    for (int i = 0; i < numRows * numCols; i++) {
+      z[i] = g[i];
+    }
   }
 
   // Initial Search Direction: d = z
@@ -234,35 +251,33 @@ int main(int argc, char **argv) {
       break;
     }
 
-    // 2.5 Solve Mz = r (Block-Jacobi)
-    // Here, M is the block-diagonal part of A where each block corresponds
-    // to a process. Solving Mz = r exactly on each block is expensive.
-    // Instead, we perform several steps of a local stationary method (Jacobi).
+    // 2.5 Solve Mz = r
     t0 = MPI_Wtime();
-    // Warm start z with 0 or previous? 0 is safer for stability.
-    for (int i = 0; i < numRows * numCols; i++)
-      z[i] = 0.0;
-
-    // Perform 5 steps of local Jacobi as the preconditioner "solve"
-    // Note: This is purely local, no MPI communication here.
-    double *z_new = (double *)malloc(numRows * numCols * sizeof(double));
-    for (int it = 0; it < 5; it++) {
-      for (int i = 0; i < numRows; i++) {
-        for (int j = 0; j < numCols; j++) {
-          double up = (i > 0) ? z[IDX(i - 1, j, numCols)] : 0.0;
-          double down = (i < numRows - 1) ? z[IDX(i + 1, j, numCols)] : 0.0;
-          double left = (j > 0) ? z[IDX(i, j - 1, numCols)] : 0.0;
-          double right = (j < numCols - 1) ? z[IDX(i, j + 1, numCols)] : 0.0;
-
-          // (4*z_ij - neighbors) = r_ij  => z_ij = (r_ij + neighbors) / 4
-          z_new[IDX(i, j, numCols)] =
-              (g[IDX(i, j, numCols)] + up + down + left + right) / 4.0;
-        }
-      }
+    if (use_pcg) {
+      // Block-Jacobi: Perform 5 steps of local Jacobi
       for (int i = 0; i < numRows * numCols; i++)
-        z[i] = z_new[i];
+        z[i] = 0.0;
+      double *z_new = (double *)malloc(numRows * numCols * sizeof(double));
+      for (int it = 0; it < 5; it++) {
+        for (int i = 0; i < numRows; i++) {
+          for (int j = 0; j < numCols; j++) {
+            double up = (i > 0) ? z[IDX(i - 1, j, numCols)] : 0.0;
+            double down = (i < numRows - 1) ? z[IDX(i + 1, j, numCols)] : 0.0;
+            double left = (j > 0) ? z[IDX(i, j - 1, numCols)] : 0.0;
+            double right = (j < numCols - 1) ? z[IDX(i, j + 1, numCols)] : 0.0;
+            z_new[IDX(i, j, numCols)] =
+                (g[IDX(i, j, numCols)] + up + down + left + right) / 4.0;
+          }
+        }
+        for (int i = 0; i < numRows * numCols; i++)
+          z[i] = z_new[i];
+      }
+      free(z_new);
+    } else {
+      // Standard CG (Identity Preconditioner): z = r
+      for (int i = 0; i < numRows * numCols; i++)
+        z[i] = g[i];
     }
-    free(z_new);
 
     // 2.6 rho1 = r^T * z
     rho1 = MatrixDotProduct(g, z, numRows, numCols, numCols, numCols, 0, 0);
