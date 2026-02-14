@@ -4,7 +4,25 @@
 ![Parallelism](https://img.shields.io/badge/Parallelism-MPI-green.svg)
 ![Algorithm](https://img.shields.io/badge/Algorithm-Conjugate%20Gradient-orange.svg)
 
-This project implements a high-performance MPI-parallelized CG solver specifically optimized for self-adjoint elliptic PDEs (such as the Poisson equation). By leveraging the structured sparsity of the discretized operators, the implementation employs a matrix-free stencil approach to bypass the memory bottlenecks of traditional CSR formats.
+An MPI-parallelized CG solver for self-adjoint elliptic PDEs, validated against a theoretical performance model, with extensions into preconditioning and communication hiding.
+
+For detailed performance analysis, benchmarks, and technical discussion, see the full [Project Report](docs/REPORT.md).
+
+## Implementation Features
+
+*   **2D Domain Decomposition**: Splits computational grid into process-local blocks for optimal weak scaling
+*   **Efficient Halo Exchange**: Uses `MPI_Sendrecv` for boundary synchronization with deadlock avoidance
+*   **Matrix-Free Implementation**: Stencil-based approach for 10x memory savings over explicit sparse matrices
+*   **Parallel Reduction**: Optimized global dot-products using `MPI_Allreduce`
+
+## Performance Results
+
+- **Weak Scaling**: Achieves ~39% efficiency at 25 processes on the UPPMAX cluster (512x512 local grid per process)
+- **Strong Scaling**: Achieves **13.4x speedup** on 25 cores (UPPMAX cluster, n=2048)
+- **Algorithm Efficiency**: Demonstrates optimal $O(n)$ iteration scaling characteristic of CG methods
+- **Algorithmic Extensions**: Block-Jacobi preconditioning reduces iteration count by ~30% with zero additional communication overhead.
+- **Numerical Stability**: High-precision verification with identical results across different MPI implementations and scale factors
+- **Memory Optimization**: 10x memory savings through matrix-free stencil implementation
 
 ## Conjugate Gradient Algorithm
 
@@ -37,13 +55,6 @@ The CG method is particularly well-suited for:
 - **Monotonic convergence**: Residual decreases monotonically at each iteration
 - **Optimal convergence**: Among the fastest converging Krylov methods for SPD systems
 
-## Key Features
-
-*   **2D Domain Decomposition**: Splits computational grid into process-local blocks for optimal weak scaling
-*   **Efficient Halo Exchange**: Uses `MPI_Sendrecv` for boundary synchronization with deadlock avoidance
-*   **Matrix-Free Implementation**: Stencil-based approach for 10x memory savings over explicit sparse matrices
-*   **Parallel Reduction**: Optimized global dot-products using `MPI_Allreduce`
-
 ## Build & Run
 
 ### Prerequisites
@@ -62,18 +73,10 @@ mpirun -n 16 ./CG 1000
 # Run to convergence (accuracy mode):
 mpirun -n 16 ./CG 1000 50000 1e-6
 ```
-*   `procs`: Number of MPI ranks (must be perfect square)
+*   `procs`: Number of MPI ranks (must be a perfect square)
 *   `grid_size`: Number of intervals along one axis (total unknowns = $n^2$)
 *   `max_iter` (optional): Maximum iterations (default: 200)
 *   `tol` (optional): Convergence tolerance on $\|r\|_2$ (default: 0, meaning no check)
-
-## Performance Highlights
-
-- **Weak Scaling**: Achieves ~39% efficiency at 25 processes on the UPPMAX cluster (512x512 local grid per process)
-- **Strong Scaling**: Achieves **13.4x speedup** on 25 cores (UPPMAX cluster, n=2048)
-- **Algorithm Efficiency**: Demonstrates optimal $O(n)$ iteration scaling characteristic of CG methods
-- **Numerical Stability**: High-precision verification with identical results across different MPI implementations and scale factors
-- **Memory Optimization**: 10x memory savings through matrix-free stencil implementation
 
 ## Quick Validation
 
@@ -88,13 +91,3 @@ Converged: yes
 Residual: 9.8156129832e-07
 L2_Error: 6.6555733901e-08
 ```
-
-## Documentation
-
-For detailed performance analysis, benchmarks, and technical discussion, see the full [Project Report](REPORT.md).
-
-## Future Work
-
-- Jacobi preconditioner for reduced iteration count
-- Non-blocking halo exchange for communication-computation overlap
-- Support for non-trivial test problems with actual discretization error

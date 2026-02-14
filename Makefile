@@ -20,5 +20,6 @@ CG: CG_baseline.c $(UTILS)
 PCG: PCG.c $(UTILS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
+
 clean:
 	$(RM) $(BINS) $(UTILS)
