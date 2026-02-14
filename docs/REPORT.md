@@ -260,14 +260,16 @@ To address the $O(n^3)$ total complexity bottleneck, we implemented a **Precondi
 
 *   **Implementation**: We adopted a **Block-Jacobi** preconditioner, accessible via the `-pcg` flag in the updated solver. Each process solves a local sub-problem independently. To minimize the cost of the "solve" step ($Mz=r$), we use 5 iterations of a local Jacobi smoother.
 
-*   **Comparative Numerical Scalability**: The primary benefit of preconditioning is the reduction of the iteration count, which effectively lowers the constant factor of the total complexity.
+*   **Comparative Analysis**: To evaluate the impact of preconditioning, we compare standard CG and PCG (Block-Jacobi) across two dimensions: numerical convergence (iteration count) and total execution time.
 
 <p align="center">
-  <img src="cg_vs_pcg_iterations.png" width="800">
+  <img src="cg_vs_pcg_iterations.png" width="45%">
+  <img src="cg_vs_pcg_complexity.png" width="45%">
 </p>
 
-*   **Iteration Analysis**: As shown in the log-log plot, both solvers scale at $O(n)$, but the **PCG (Block-Jacobi)** maintains a significantly lower iteration count (approx. **30% reduction** across all $n$).
-*   **Total Complexity Insight**: While PCG reduces the iteration count, the total complexity remains $O(n^3)$. In this local Mac environment, the per-iteration cost of the 5 smoothing steps currently offsets the reduction in iterations, resulting in slightly higher wall-clock times ($T_{total} = k \cdot (T_{compute} + T_{comm})$). However, in high-latency cluster environments, reducing the number of global reductions ($k$) often leads to a net gain in total solving time.
+*   **Iteration Analysis (Numerical Scalability)**: The log-log plot shows that both solvers maintain $O(n)$ iteration scaling. However, the **PCG (Block-Jacobi)** maintains a significantly lower iteration count (approx. **30% reduction** across all $n$), effectively lowering the constant factor of the algorithm.
+*   **Time Analysis (Practical Trade-off)**: While PCG reduces the total number of iterations, its per-iteration cost in this local Mac environment is higher due to the 5 local smoothing steps. This results in slightly higher total wall-clock times locally. 
+*   **Conclusion**: Both plots confirm that the **numerical bottleneck** ($O(n)$ iterations) is improved by preconditioning. In high-latency cluster environments, the savings from reduced global communications usually outweigh the local compute overhead, leading to true performance gains.
 
 ### 7.2 Communication-Avoiding CG (CA-CG)
 *   **Goal**: Reduce the number of global reductions.
