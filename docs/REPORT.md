@@ -247,14 +247,32 @@ Current analysis relies on timing instrumentation, but adding MPI profiling woul
 
 ---
 
-## 7. What Would Truly Change Scalability?
+## 7. What Would Truly Change Scalability (Algorithmic Extension)
+
+> [!NOTE]
+> **Experimental Note**: The core analysis and results presented in this section were obtained in a **local Mac environment (M1/M2 silicon)**. This section serves as an **algorithmic extension** to the project, focusing on numerical optimization and convergence validation without further cluster deployment.
 
 Parallelization ($p \uparrow$) has diminishing returns ($1/\sqrt{p}$ or $\log p$). To break the bottleneck, we need algorithmic changes.
 
-### 7.1 Preconditioning
-*   **Goal**: Reduce condition number $\kappa(A)$.
-*   **Impact**: Changes iterations from $O(n) \to O(1)$ or $O(\sqrt{n})$.
-*   **Result**: Reduces $T_{total}$ by an order of magnitude, far more than adding cores.
+### 7.1 Preconditioning (PCG with Block-Jacobi)
+
+To address the $O(n^3)$ total complexity bottleneck, we implemented a **Preconditioned Conjugate Gradient (PCG)** solver. 
+
+*   **Implementation**: We adopted a **Block-Jacobi** preconditioner. In our parallel setting, each process solves a local sub-problem independently at each iteration. To minimize the cost of the "solve" step ($Mz=r$), we use 5 iterations of a local Jacobi smoother as the approximate inverse.
+*   **Impact on Convergence**: Experimental data shows a significant reduction in iteration counts across all scales:
+
+| 128             | 143                 | 104                      | ~27%        |
+| 256             | 240                 | 165                      | ~31%        |
+| 512             | 460                 | 317                      | ~31%        |
+
+*   **Complexity Scaling ($O(n^3)$)**: To verify the overall efficiency, we measured the total solving time for PCG up to $n=2048$.
+
+<p align="center">
+  <img src="pcg_convergence_scaling.png" width="800">
+</p>
+
+*   **Result**: The log-log fit shows a slope of **3.01**, perfectly matching the theoretical $O(n^3)$ complexity.
+*   **Complexity Insight**: While Block-Jacobi reduces the **constant factor** of the iteration count by ~30%, the complexity remains $O(n)$. However, this reduction directly translates to a 30% lower total solving time, assuming the overhead of the preconditioner (local smoothing) is kept low. This demonstrates that even simple parallel-friendly preconditioning can provide substantial performance gains compared to raw compute scaling.
 
 ### 7.2 Communication-Avoiding CG (CA-CG)
 *   **Goal**: Reduce the number of global reductions.

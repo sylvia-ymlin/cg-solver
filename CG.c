@@ -15,8 +15,8 @@ void MatrixAdd(double *A, double *B, double a, double b, double *C, int rows,
                int cols, int strideA, int strideB, int strideC, int offAr,
                int offAc, int offBr, int offBc, int offCr, int offCc);
 void exchangeBoundaryValues(double *d, int numRows, int numCols, int stride,
-                            int *neighborProcs,
-                            double *sendBuf, double *recvBuf);
+                            int *neighborProcs, double *sendBuf,
+                            double *recvBuf);
 
 int main(int argc, char **argv) {
   /* Initialize MPI */
@@ -30,7 +30,8 @@ int main(int argc, char **argv) {
       printf("Usage: %s <n> [max_iter] [tol]\n"
              "  n        : grid intervals (required)\n"
              "  max_iter : max CG iterations (default %d, 0 = use tol only)\n"
-             "  tol      : residual tolerance (default %.1e, 0 = use max_iter only)\n",
+             "  tol      : residual tolerance (default %.1e, 0 = use max_iter "
+             "only)\n",
              argv[0], DEFAULT_MAX_ITER, DEFAULT_TOL);
     MPI_Finalize();
     return 1;
@@ -38,12 +39,14 @@ int main(int argc, char **argv) {
 
   int n = atoi(argv[1]);
   if (n <= 0) {
-    if (myid == 0) printf("Error: n must be positive.\n");
+    if (myid == 0)
+      printf("Error: n must be positive.\n");
     MPI_Finalize();
     return 1;
   }
   int max_iter = (argc >= 3) ? atoi(argv[2]) : DEFAULT_MAX_ITER;
-  double tol = (argc >= 4) ? atof(argv[3]) : 0.0; // default: no convergence check (timing mode)
+  double tol = (argc >= 4) ? atof(argv[3])
+                           : 0.0; // default: no convergence check (timing mode)
   double h = 1.0 / (n + 1);
 
   // Distribute the mesh points among processes
@@ -137,50 +140,55 @@ int main(int argc, char **argv) {
   double t_halo = 0.0, t_reduce = 0.0, t_comp = 0.0, t0; // timing breakdown
   startTime = MPI_Wtime();
 
-  // 1.1 u = 0, 1.2 g = -b
+  // 1.1 u = 0, 1.2 g = -b (residual r = b - Au, where u=0 => r = b)
+  // Note: g here stands for the negative residual -r in some notations,
+  // but let's stick to the PCG standard: r = b - Au.
+  // In the original code, 'g' was used. Let's rename for clarity or keep it.
+  // Original: g = -b => r = b.
   for (int i = 0; i < numRows * numCols; i++) {
     u[i] = 0;
-    g[i] = -b[i];
+    g[i] = b[i]; // g is now the residual 'r'
   }
 
-  // 1.3 d = b (inner part of d)
-  // Map d[i+1][j+1] = b[i][j]
+  // Preconditioning vector z
+  double *z = (double *)malloc(numRows * numCols * sizeof(double));
+  if (!z) {
+    fprintf(stderr, "Preconditioning buffer allocation failed.\n");
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+
+  // Initial Preconditioning: Mz = r (Jacobi: M = diag(A) = 4)
+  for (int i = 0; i < numRows * numCols; i++) {
+    z[i] = g[i] / 4.0;
+  }
+
+  // Initial Search Direction: d = z
+  // Map d[i+1][j+1] = z[i][j]
   for (int i = 0; i < numRows; i++) {
     for (int j = 0; j < numCols; j++) {
-      d[IDX(i + 1, j + 1, extCols)] = b[IDX(i, j, numCols)];
+      d[IDX(i + 1, j + 1, extCols)] = z[IDX(i, j, numCols)];
     }
   }
-  // Boundary of d is already 0 thanks to calloc
 
-  // 1.4 q0 = g^T * g
-  double q0 = MatrixDotProduct(g, g, numRows, numCols, numCols, numCols, 0, 0);
-  MPI_Allreduce(MPI_IN_PLACE, &q0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  // Initial rho: rho0 = r^T * z
+  double rho0 =
+      MatrixDotProduct(g, z, numRows, numCols, numCols, numCols, 0, 0);
+  MPI_Allreduce(MPI_IN_PLACE, &rho0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  // 2. CG iteration
+  // 2. PCG iteration
   int iter = 0;
   int converged = 0;
-  double tau, q1, beta, dotProduct;
+  double alpha, rho1, beta, dotProduct;
   while (iter < max_iter) {
     // 2.1 q = Ad (halo exchange + stencil)
     t0 = MPI_Wtime();
-    exchangeBoundaryValues(d, extRows, extCols, extCols, neighborProcs,
-                           sendBuf, recvBuf);
+    exchangeBoundaryValues(d, extRows, extCols, extCols, neighborProcs, sendBuf,
+                           recvBuf);
     t_halo += MPI_Wtime() - t0;
 
     t0 = MPI_Wtime();
     for (int i = 0; i < numRows; i++) {
       for (int j = 0; j < numCols; j++) {
-        // 5-point Laplacian stencil: q(i,j) = 4*d(i,j) - d(i-1,j) - d(i+1,j)
-        //                                                - d(i,j-1) - d(i,j+1)
-        //
-        // Index shift: d has ghost layers, so the interior point (i,j)
-        // in the local grid maps to d[i+1][j+1] in the extended array.
-        // This means:
-        //   center = d[i+1, j+1]   (the point itself)
-        //   up     = d[i,   j+1]   (row above in extended coords)
-        //   down   = d[i+2, j+1]   (row below)
-        //   left   = d[i+1, j  ]   (column left)
-        //   right  = d[i+1, j+2]   (column right)
         int center = IDX(i + 1, j + 1, extCols);
         int up = IDX(i, j + 1, extCols);
         int down = IDX(i + 2, j + 1, extCols);
@@ -192,7 +200,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    // 2.2 tau = q0 / d^T * q (local dot product + global reduction)
+    // 2.2 alpha = rho0 / (d^T * q)
     dotProduct =
         MatrixDotProduct(d, q, numRows, numCols, extCols, numCols, 1, 1);
     t_comp += MPI_Wtime() - t0;
@@ -201,42 +209,86 @@ int main(int argc, char **argv) {
     MPI_Allreduce(MPI_IN_PLACE, &dotProduct, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
     t_reduce += MPI_Wtime() - t0;
-    tau = q0 / dotProduct;
+    alpha = rho0 / dotProduct;
 
-    // 2.3 u = u + tau * d, 2.4 g = g + tau * q (local vector ops)
+    // 2.3 u = u + alpha * d, 2.4 r = r - alpha * q
     t0 = MPI_Wtime();
-    MatrixAdd(u, d, 1.0, tau, u, numRows, numCols, numCols, extCols, numCols, 0,
-              0, 1, 1, 0, 0);
-    MatrixAdd(g, q, 1.0, tau, g, numRows, numCols, numCols, numCols, numCols, 0,
-              0, 0, 0, 0, 0);
+    MatrixAdd(u, d, 1.0, alpha, u, numRows, numCols, numCols, extCols, numCols,
+              0, 0, 1, 1, 0, 0);
+    MatrixAdd(g, q, 1.0, -alpha, g, numRows, numCols, numCols, numCols, numCols,
+              0, 0, 0, 0, 0, 0);
 
-    // 2.5 q1 = g^T * g (local dot product)
-    q1 = MatrixDotProduct(g, g, numRows, numCols, numCols, numCols, 0, 0);
+    // Check convergence: ||r||_2 < tol
+    double r_norm_sq =
+        MatrixDotProduct(g, g, numRows, numCols, numCols, numCols, 0, 0);
     t_comp += MPI_Wtime() - t0;
 
     t0 = MPI_Wtime();
-    MPI_Allreduce(MPI_IN_PLACE, &q1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &r_norm_sq, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
     t_reduce += MPI_Wtime() - t0;
 
-    // Check convergence: ||g||_2 = sqrt(q1) < tol
-    if (tol > 0.0 && sqrt(q1) < tol) {
+    if (tol > 0.0 && sqrt(r_norm_sq) < tol) {
       converged = 1;
       iter++;
       break;
     }
 
-    // 2.6 beta = q1 / q0;
-    beta = q1 / q0;
+    // 2.5 Solve Mz = r (Block-Jacobi)
+    // Here, M is the block-diagonal part of A where each block corresponds
+    // to a process. Solving Mz = r exactly on each block is expensive.
+    // Instead, we perform several steps of a local stationary method (Jacobi).
+    t0 = MPI_Wtime();
+    // Warm start z with 0 or previous? 0 is safer for stability.
+    for (int i = 0; i < numRows * numCols; i++)
+      z[i] = 0.0;
 
-    // 2.6 d = -g + beta * d
-    MatrixAdd(g, d, -1.0, beta, d, numRows, numCols, numCols, extCols, extCols,
+    // Perform 5 steps of local Jacobi as the preconditioner "solve"
+    // Note: This is purely local, no MPI communication here.
+    double *z_new = (double *)malloc(numRows * numCols * sizeof(double));
+    for (int it = 0; it < 5; it++) {
+      for (int i = 0; i < numRows; i++) {
+        for (int j = 0; j < numCols; j++) {
+          double up = (i > 0) ? z[IDX(i - 1, j, numCols)] : 0.0;
+          double down = (i < numRows - 1) ? z[IDX(i + 1, j, numCols)] : 0.0;
+          double left = (j > 0) ? z[IDX(i, j - 1, numCols)] : 0.0;
+          double right = (j < numCols - 1) ? z[IDX(i, j + 1, numCols)] : 0.0;
+
+          // (4*z_ij - neighbors) = r_ij  => z_ij = (r_ij + neighbors) / 4
+          z_new[IDX(i, j, numCols)] =
+              (g[IDX(i, j, numCols)] + up + down + left + right) / 4.0;
+        }
+      }
+      for (int i = 0; i < numRows * numCols; i++)
+        z[i] = z_new[i];
+    }
+    free(z_new);
+
+    // 2.6 rho1 = r^T * z
+    rho1 = MatrixDotProduct(g, z, numRows, numCols, numCols, numCols, 0, 0);
+    t_comp += MPI_Wtime() - t0;
+
+    t0 = MPI_Wtime();
+    MPI_Allreduce(MPI_IN_PLACE, &rho1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    t_reduce += MPI_Wtime() - t0;
+
+    // 2.7 beta = rho1 / rho0
+    beta = rho1 / rho0;
+
+    // 2.8 d = z + beta * d
+    t0 = MPI_Wtime();
+    // Inner points of d: d[i+1][j+1] = z[i][j] + beta * d[i+1][j+1]
+    MatrixAdd(z, d, 1.0, beta, d, numRows, numCols, numCols, extCols, extCols,
               0, 0, 1, 1, 1, 1);
+    t_comp += MPI_Wtime() - t0;
 
-    // 2.7 q0 = q1
-    q0 = q1;
+    // 2.9 rho0 = rho1
+    rho0 = rho1;
 
     iter++;
   }
+
+  free(z);
 
   // 3. Calculate residual norm
   double norm;
@@ -332,8 +384,8 @@ void MatrixAdd(double *A, double *B, double a, double b, double *C, int rows,
 }
 
 void exchangeBoundaryValues(double *d, int numRows, int numCols, int stride,
-                            int *neighborProcs,
-                            double *sendBuf, double *recvBuf) {
+                            int *neighborProcs, double *sendBuf,
+                            double *recvBuf) {
   // numRows/numCols here are EXTERNAL dimensions of d
   // sendBuf/recvBuf are pre-allocated by caller (size >= numRows-2)
 
