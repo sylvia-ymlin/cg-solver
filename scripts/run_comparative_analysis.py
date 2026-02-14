@@ -13,13 +13,13 @@ GRIDS = [64, 128, 256, 512, 1024, 2048]
 results = {"cg": [], "pcg": []}
 
 def run_benchmark(n, use_pcg):
-    cmd = ["mpirun", "--oversubscribe", "-np", "1", "./CG", str(n), str(MAX_ITER), str(TOL)]
-    if use_pcg:
-        cmd.append("-pcg")
+    binary = "./PCG" if use_pcg else "./CG"
+    cmd = ["mpirun", "--oversubscribe", "-np", "1", binary, str(n), str(MAX_ITER), str(TOL)]
     
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         out = r.stdout
+        # Match "Iterations: 100" or "Standard CG - Iterations: 100"
         it = re.search(r"Iterations:\s*(\d+)", out)
         tm = re.search(r"Time:\s*([0-9.]+)", out)
         return {"n": n, "iters": int(it.group(1)), "time": float(tm.group(1))}

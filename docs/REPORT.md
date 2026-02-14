@@ -254,11 +254,11 @@ Current analysis relies on timing instrumentation, but adding MPI profiling woul
 
 Parallelization ($p \uparrow$) has diminishing returns ($1/\sqrt{p}$ or $\log p$). To break the bottleneck, we need algorithmic changes.
 
-### 7.1 Preconditioning (PCG with Block-Jacobi)
-
-To address the $O(n^3)$ total complexity bottleneck, we implemented a **Preconditioned Conjugate Gradient (PCG)** solver. 
-
-*   **Implementation**: We adopted a **Block-Jacobi** preconditioner, accessible via the `-pcg` flag in the updated solver. Each process solves a local sub-problem independently. To minimize the cost of the "solve" step ($Mz=r$), we use 5 iterations of a local Jacobi smoother.
+*   **Implementation**: To ensure a clean separation of concerns, we refactored the codebase into two distinct binaries:
+    *   `CG`: Standard Conjugate Gradient solver (baseline).
+    *   `PCG`: Preconditioned Conjugate Gradient solver (Block-Jacobi).
+    *   Shared logic (MPI setup, boundary exchange, matrix ops) is centralized in `solver_utils.c`.
+    *   **Usage**: Run `./CG <n>` for standard or `./PCG <n>` for preconditioned mode. Each process solves a local sub-problem independently. To minimize the cost of the "solve" step ($Mz=r$), PCG uses 5 iterations of a local Jacobi smoother.
 
 *   **Comparative Analysis**: To evaluate the impact of preconditioning, we compare standard CG and PCG (Block-Jacobi) across two dimensions: numerical convergence (iteration count) and total execution time.
 

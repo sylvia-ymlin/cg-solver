@@ -6,12 +6,19 @@ CC = mpicc
 CFLAGS = -std=c99 -g -O3 -Wall -Wextra
 LIBS = -lm
 
-BIN = CG
+BINS = CG PCG
+UTILS = solver_utils.o
 
-all: $(BIN)
+all: $(BINS)
 
-$(BIN): CG.c
-	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
+%.o: %.c solver_utils.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+CG: CG_baseline.c $(UTILS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
+PCG: PCG.c $(UTILS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 clean:
-	$(RM) $(BIN)
+	$(RM) $(BINS) $(UTILS)
