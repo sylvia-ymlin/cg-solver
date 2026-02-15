@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void SetupGrid(int n, GridContext *ctx) {
+int SetupGrid(int n, GridContext *ctx) {
   int myid, numprocs;
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -16,14 +16,14 @@ void SetupGrid(int n, GridContext *ctx) {
   if (gridDim * gridDim != numprocs) {
     if (myid == 0)
       printf("Error: Number of processes must be a perfect square.\n");
-    MPI_Abort(MPI_COMM_WORLD, 1);
+    return 1;
   }
   ctx->gridDim = gridDim;
 
   if (n < gridDim) {
     if (myid == 0)
       printf("Error: n (%d) must be >= sqrt(numprocs) (%d).\n", n, gridDim);
-    MPI_Abort(MPI_COMM_WORLD, 1);
+    return 1;
   }
 
   ctx->row = myid / gridDim;
@@ -53,6 +53,8 @@ void SetupGrid(int n, GridContext *ctx) {
     ctx->J_START =
         residual * (blockSize + 1) + (ctx->col - residual) * blockSize + 1;
   }
+
+  return 0;
 }
 
 double MatrixDotProduct(double *A, double *B, int rows, int cols, int strideA,

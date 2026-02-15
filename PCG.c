@@ -23,7 +23,10 @@ int main(int argc, char **argv) {
   int jacobi_iters = (argc >= 5) ? atoi(argv[4]) : 5;
 
   GridContext ctx;
-  SetupGrid(n, &ctx);
+  if (SetupGrid(n, &ctx) != 0) {
+    MPI_Finalize();
+    return 1;
+  }
 
   // Memory Allocation
   double *b = (double *)malloc(ctx.numRows * ctx.numCols * sizeof(double));
@@ -35,6 +38,8 @@ int main(int argc, char **argv) {
   double *d = (double *)calloc(extRows * extCols, sizeof(double));
   double *sendBuf = (double *)malloc((extRows - 2) * sizeof(double));
   double *recvBuf = (double *)malloc((extRows - 2) * sizeof(double));
+  // Auxiliary vector for Preconditioning
+  double *z_new = (double *)malloc(ctx.numRows * ctx.numCols * sizeof(double));
 
   // Initialize b
   for (int i = 0; i < ctx.numRows; i++) {
@@ -104,8 +109,6 @@ int main(int argc, char **argv) {
     }
 
     // Mz = r (Block-Jacobi with implicit 5 iterations or specified)
-    double *z_new =
-        (double *)malloc(ctx.numRows * ctx.numCols * sizeof(double));
     for (int i = 0; i < ctx.numRows * ctx.numCols; i++)
       z[i] = 0.0;
     for (int it = 0; it < jacobi_iters; it++) {
@@ -123,7 +126,6 @@ int main(int argc, char **argv) {
       }
       memcpy(z, z_new, ctx.numRows * ctx.numCols * sizeof(double));
     }
-    free(z_new);
 
     double rho1 = MatrixDotProduct(g, z, ctx.numRows, ctx.numCols, ctx.numCols,
                                    ctx.numCols, 0, 0);
@@ -145,6 +147,7 @@ int main(int argc, char **argv) {
            max_exe_time);
   }
 
+  free(z_new);
   free(z);
   free(sendBuf);
   free(recvBuf);

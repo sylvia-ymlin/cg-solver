@@ -6,7 +6,7 @@ import re
 import plotting
 
 # Configuration
-RESULTS_DIR = "results/local"
+RESULTS_DIR = "results"
 BIN_CG = "./CG"
 BIN_PCG = "./PCG"
 
@@ -161,9 +161,38 @@ def run_comparison():
         print("Generating Pipelined CG ablation plot from historical data...")
         plotting.plot_pipelined_ablation("scripts/comparative_data.json")
 
+def run_jacobi_tuning():
+    """Run Jacobi Tuning: Effect of preconditioning steps on convergence."""
+    print("\n=== Running Jacobi Tuning Experiment ===")
+    
+    jacobi_steps = [1, 5, 10, 20]
+    n = 1024
+    tol = 1e-6
+    max_iter = 50000
+    
+    results = []
+    
+    for steps in jacobi_steps:
+        # Run PCG with different jacobi_iters
+        # Note: PCG.c must accept the optional 4th argument for jacobi_iters
+        cmd = f"mpirun -n 1 {BIN_PCG} {n} {max_iter} {tol} {steps}"
+        output = run_command(cmd)
+        if output:
+            meta = parse_meta(output)
+            if meta:
+                meta['jacobi_steps'] = steps
+                results.append(meta)
+                print(f"Steps={steps}: Iters={meta['iters']}, Time={meta['time']:.4f}s")
+    
+    outfile = os.path.join(RESULTS_DIR, "jacobi_tuning.json")
+    with open(outfile, "w") as f:
+        json.dump(results, f, indent=2)
+        
+    plotting.plot_jacobi_tuning(outfile)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run CG Solver Benchmarks")
-    parser.add_argument("mode", nargs="?", choices=["scaling", "convergence", "comparison", "all"], default="all",
+    parser.add_argument("mode", nargs="?", choices=["scaling", "convergence", "comparison", "jacobi_tuning", "all"], default="all",
                         help="Benchmark mode to run (default: all)")
     
     args = parser.parse_args()
@@ -177,5 +206,7 @@ if __name__ == "__main__":
         run_convergence()
     if args.mode in ["comparison", "all"]:
         run_comparison()
+    if args.mode in ["jacobi_tuning", "all"]:
+        run_jacobi_tuning()
         
     print(f"\nAll requested benchmarks complete. Results in {RESULTS_DIR}")

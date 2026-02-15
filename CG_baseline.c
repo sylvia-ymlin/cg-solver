@@ -22,7 +22,10 @@ int main(int argc, char **argv) {
   double tol = (argc >= 4) ? atof(argv[3]) : 0.0;
 
   GridContext ctx;
-  SetupGrid(n, &ctx);
+  if (SetupGrid(n, &ctx) != 0) {
+    MPI_Finalize();
+    return 1;
+  }
 
   // Memory Allocation
   double *b = (double *)malloc(ctx.numRows * ctx.numCols * sizeof(double));

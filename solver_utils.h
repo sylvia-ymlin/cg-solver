@@ -21,7 +21,7 @@ typedef struct {
   double h;
 } GridContext;
 
-void SetupGrid(int n, GridContext *ctx);
+int SetupGrid(int n, GridContext *ctx);
 
 double MatrixDotProduct(double *A, double *B, int rows, int cols, int strideA,
                         int strideB, int offsetA_row, int offsetA_col);

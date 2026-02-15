@@ -7,7 +7,7 @@ import pandas as pd
 # Standard plot settings for consistent style
 plt.rcParams.update({'font.size': 12, 'lines.linewidth': 2})
 
-def plot_weak_scaling(data_file='results/local/weak_scaling.tsv', output_file='docs/local_weak_scaling.png'):
+def plot_weak_scaling(data_file='results/weak_scaling.tsv', output_file='docs/local_weak_scaling.png'):
     """Generate weak scaling plot."""
     try:
         if not os.path.exists(data_file):
@@ -32,7 +32,7 @@ def plot_weak_scaling(data_file='results/local/weak_scaling.tsv', output_file='d
     except Exception as e:
         print(f"Failed to plot weak scaling: {e}")
 
-def plot_strong_scaling(data_file='results/local/strong_scaling.tsv', output_file='docs/local_strong_scaling.png'):
+def plot_strong_scaling(data_file='results/strong_scaling.tsv', output_file='docs/local_strong_scaling.png'):
     """Generate strong scaling plot."""
     try:
         if not os.path.exists(data_file):
@@ -63,7 +63,7 @@ def plot_strong_scaling(data_file='results/local/strong_scaling.tsv', output_fil
     except Exception as e:
         print(f"Failed to plot strong scaling: {e}")
 
-def plot_convergence(convergence_file='results/local/convergence.json', output_file='docs/convergence_analysis.png'):
+def plot_convergence(convergence_file='results/convergence.json', output_file='docs/convergence_analysis.png'):
     """Generate convergence analysis plots."""
     if not os.path.exists(convergence_file):
         print(f"File not found: {convergence_file}")
@@ -100,7 +100,7 @@ def plot_convergence(convergence_file='results/local/convergence.json', output_f
     except Exception as e:
         print(f"Failed to plot convergence: {e}")
 
-def plot_comparison(comparison_file='results/local/comparison.json', output_file='docs/solver_comparison.png'):
+def plot_comparison(comparison_file='results/comparison.json', output_file='docs/solver_comparison.png'):
     """Generate solver comparison plots (CG vs PCG)."""
     if not os.path.exists(comparison_file):
         print(f"File not found: {comparison_file}")
@@ -111,23 +111,112 @@ def plot_comparison(comparison_file='results/local/comparison.json', output_file
             data = json.load(f)
             
         ns = [x['n'] for x in data['cg']]
+        
+        # Iterations
         cg_iters = [x['iters'] for x in data['cg']]
         pcg_iters = [x['iters'] for x in data['pcg']]
         
-        plt.figure(figsize=(8, 6))
-        plt.plot(ns, cg_iters, 'o-', label='Standard CG')
-        plt.plot(ns, pcg_iters, 's-', label='Preconditioned CG (Block-Jacobi)')
+        # Time
+        cg_times = [x['time'] for x in data['cg']]
+        pcg_times = [x['time'] for x in data['pcg']]
         
-        plt.xlabel('Grid Size N')
-        plt.ylabel('Iterations')
-        plt.title('Convergence Comparison: CG vs PCG')
-        plt.legend()
-        plt.grid(True)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+        
+        # Subplot 1: Iterations (Linear scale)
+        ax1.plot(ns, cg_iters, 'o-', label='Standard CG')
+        ax1.plot(ns, pcg_iters, 's-', label='Preconditioned CG')
+        ax1.set_xlabel('Grid Size N')
+        ax1.set_ylabel('Iterations')
+        ax1.set_title('Convergence: Iteration Reductions')
+        ax1.legend()
+        ax1.grid(True)
+        
+        # Subplot 2: Total Time (Log-Log scale)
+        ax1.plot(ns, cg_iters, 'o-', label='Standard CG') # Redundant line? No, ax1 is done.
+        
+        ax2.loglog(ns, cg_times, 'o-', label='Standard CG')
+        ax2.loglog(ns, pcg_times, 's-', label='Preconditioned CG')
+        ax2.set_xlabel('Grid Size N (Total Unknowns $N^2$)')
+        ax2.set_ylabel('Total Time (s)')
+        ax2.set_title('Complexity: Total Time to Solution')
+        ax2.legend()
+        ax2.grid(True, which="both", ls="-", alpha=0.5)
+        
+        plt.tight_layout()
         plt.savefig(output_file)
         print(f"Saved {output_file}")
     except Exception as e:
         print(f"Failed to plot comparison: {e}")
 
+
+def plot_pipelined_ablation(data_file='scripts/comparative_data.json', output_file='docs/pipelined_ablation.png'):
+    """Generate ablation study plot for Pipelined CG."""
+    if not os.path.exists(data_file):
+        print(f"File not found: {data_file}")
+        return
+
+    try:
+        with open(data_file, 'r') as f:
+            data = json.load(f)
+            
+        if 'pipelined' not in data:
+            print("No pipelined data found.")
+            return
+            
+        ns = [x['n'] for x in data['cg']]
+        cg_times = [x['time'] for x in data['cg']]
+        pipe_times = [x['time'] for x in data['pipelined']]
+        
+        plt.figure(figsize=(8, 6))
+        plt.plot(ns, cg_times, 'o-', label='Standard CG (Baseline)')
+        plt.plot(ns, pipe_times, 'x--', color='red', label='Pipelined CG (Overhead)')
+        
+        plt.xlabel('Grid Size N')
+        plt.ylabel('Total Time (s)')
+        plt.title('Ablation: Pipelined CG Overhead (Memory Bound)')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(output_file)
+        print(f"Saved {output_file}")
+    except Exception as e:
+        print(f"Failed to plot pipelined ablation: {e}")
+
+def plot_jacobi_tuning(data_file='results/jacobi_tuning.json', output_file='docs/jacobi_tuning.png'):
+    """Generate Jacobi tuning plot."""
+    if not os.path.exists(data_file):
+        print(f"File not found: {data_file}")
+        return
+
+    try:
+        with open(data_file, 'r') as f:
+            data = json.load(f)
+            
+        steps = [x['jacobi_steps'] for x in data]
+        iters = [x['iters'] for x in data]
+        times = [x['time'] for x in data]
+        
+        fig, ax1 = plt.subplots(figsize=(8, 6))
+        
+        color = 'tab:blue'
+        ax1.set_xlabel('Jacobi Steps per Iteration')
+        ax1.set_ylabel('Total Iterations to Convergence', color=color)
+        ax1.plot(steps, iters, 'o-', color=color, label='Iterations')
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.grid(True)
+        
+        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+        
+        color = 'tab:red'
+        ax2.set_ylabel('Total Time (s)', color=color)  # we already handled the x-label with ax1
+        ax2.plot(steps, times, 's--', color=color, label='Total Time')
+        ax2.tick_params(axis='y', labelcolor=color)
+        
+        plt.title('Impact of Jacobi Preconditioning Steps (N=1024)')
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        plt.savefig(output_file)
+        print(f"Saved {output_file}")
+    except Exception as e:
+        print(f"Failed to plot jacobi tuning: {e}")
 
 if __name__ == "__main__":
     # Ensure docs directory exists

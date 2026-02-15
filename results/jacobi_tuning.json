@@ -1,0 +1,22 @@
+[
+  {
+    "iters": 1069,
+    "time": 5.266612,
+    "jacobi_steps": 1
+  },
+  {
+    "iters": 613,
+    "time": 5.329259,
+    "jacobi_steps": 5
+  },
+  {
+    "iters": 303,
+    "time": 4.103133,
+    "jacobi_steps": 10
+  },
+  {
+    "iters": 214,
+    "time": 4.869837,
+    "jacobi_steps": 20
+  }
+]
