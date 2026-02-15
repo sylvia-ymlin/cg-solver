@@ -95,70 +95,64 @@ Where:
 We validate the theoretical model against experimental data.
 
 ### Experimental Environment
-> **Note**: The following scaling results (Sections 4.1 & 4.2) are bounded by the UPPMAX cluster allocation (2 nodes, 25 cores max). While this scale is modest, it successfully captures the fundamental strong/weak scaling behaviors and the communication bottlenecks inherent to the algorithm.
+> **Note**: The following scaling results (Sections 4.1 & 4.2) are bounded by the local workstation environment (MacOS). While limited by a single node's resources, it successfully captures the fundamental strong/weak scaling behaviors and the memory bandwidth bottlenecks inherent to the algorithm.
 
-All experimental results were obtained on the **UPPMAX Cluster (Pelle partition)**.
+All experimental results were obtained on a **Local Workstation (MacOS)**.
 
-*   **Cluster**: UPPMAX Cluster (Pelle partition).
-    *   **Nodes**: AMD EPYC 7742 (64-core) CPUs.
-    *   **Interconnect**: High-speed InfiniBand networking.
-    *   **Software Stack**: `foss/2025b` toolchain (OpenMPI 5.0.6).
-    *   **Compilation**: `mpicc` with `-O3 -std=c99` optimization flags.
+*   **System**: MacOS (Apple Silicon / Intel).
+*   **Parallelism**: MPI processes bounded by local cores and shared memory.
+*   **Interconnect**: Shared Memory (RAM) communication.
+*   **Compilation**: `mpicc` with optimization flags.
 
 ### 4.1 Weak Scaling
 **Setup**: Fixed work per process ($512 \times 512$ local grid). Global $n$ grows with $p$.
 
 *   **Model Prediction**: $T \approx \text{const} + O(\log p)$.
-*   **Data** (UPPMAX Cluster):
+*   **Data** (Local Workstation):
 
 <p align="center">
-  <img src="weak_scaling_cluster.png" width="800">
+  <img src="local_weak_scaling.png" width="800">
 </p>
 
 <p align="center">
 
 | Processes | Global Grid | Time (s) | Speedup (Scaled) | Efficiency |
 | --------- | ----------- | -------- | ---------------- | ---------- |
-| 1         | 512 x 512   | 0.141    | 1.00x            | 100%       |
-| 4         | 1024 x 1024 | 0.145    | 3.89x            | 97.2%      |
-| 9         | 1536 x 1536 | 0.261    | 4.86x            | 54.0%      |
-| 16        | 2048 x 2048 | 0.269    | 8.39x            | 52.4%      |
-| 25        | 2560 x 2560 | 0.366    | 9.63x            | 38.5%      |
+| 1         | 512 x 512   | 0.173    | 1.00x            | 100%       |
+| 4         | 1024 x 1024 | 0.241    | 2.87x            | 71.8%      |
+| 9         | 1536 x 1536 | 0.716    | 2.17x            | 24.1%      |
 
 </p>
 
-*   **Observation**: Execution time remains under 0.4s for up to 25 processes. While the efficiency drops to **38.5%** at $p=25$, the performance is governed by two factors: the predicted $O(\log p)$ reduction overhead and a significant increase in local computation time.
-*   **Technical Insight**: The jump from $p=4$ to $p=9$ shows a near-doubling of both computation time (from 0.63ms to 1.13ms per iteration) and reduction latency. This suggests that as the total memory footprint grows, the system hits a **memory bandwidth wall** and potentially transitions from intra-node to inter-node communication, causing the observed step-change in scaling efficiency. Overall, the solver scales effectively for distributed workloads despite these cluster-level bottlenecks.
+*   **Observation**: Execution time jumps significantly at $p=9$.
+*   **Technical Insight**: The drop in efficiency at $p=9$ is extreme (Time: 0.24s $\to$ 0.72s). This confirms **Memory Bandwidth Saturation** and **Oversubscription**. While Mac M-series chips possess high theoretical bandwidth, the cost of MPI process-to-process memory copying and L1/L2 cache contention becomes dominant when $p > 4$, strictly limiting scaling on unified memory architectures.
 
 ### 4.2 Strong Scaling
-**Setup**: Fixed global problem size $2048 \times 2048$. Increase $p$ from 1 to 25.
+**Setup**: Fixed global problem size $2048 \times 2048$. Increase $p$ from 1 to 9.
 
-*   **Model Prediction**: $T_{comp}$ decreases linearly. Communication overhead eventually swamps speedup.
-*   **Data** (UPPMAX Cluster):
+*   **Model Prediction**: $T_{comp}$ decreases linearly until memory wall is hit.
+*   **Data** (Local Workstation):
 
 <p align="center">
-  <img src="strong_scaling_cluster.png" width="800">
+  <img src="local_strong_scaling.png" width="800">
 </p>
 
 <p align="center">
 
 | Processes | Global Grid | Time (s) | Speedup | Efficiency |
 | --------- | ----------- | -------- | ------- | ---------- |
-| 1         | 2048 x 2048 | 2.83     | 1.00x   | 100%       |
-| 4         | 2048 x 2048 | 0.77     | 3.68x   | 92%        |
-| 9         | 2048 x 2048 | 0.66     | 4.29x   | 48%        |
-| 16        | 2048 x 2048 | 0.27     | 10.42x  | 65%        |
-| 25        | 2048 x 2048 | 0.21     | 13.45x  | 54%        |
+| 1         | 2048 x 2048 | 0.64     | 1.00x   | 100%       |
+| 4         | 2048 x 2048 | 0.31     | 2.06x   | 51.5%      |
+| 9         | 2048 x 2048 | 0.31     | 2.06x   | 22.9%      |
 
 </p>
 
-*   **Observation**: Strong scaling shows significant speedup up to 25 processes, but with non-monotonic efficiency due to cluster noise.
-    - At $p=4$, we achieve **near-ideal efficiency (92%)**, benefiting from the solver's cache-friendly stencil design.
-    - At $p=9$, we observe a **performance outlier** where efficiency drops to 48%. Detailed logs show that `MPI_Allreduce` latency spiked to **1.64ms** (compared to 0.27ms at $p=25$), likely due to cross-node communication jitter or resource contention during that specific run.
-    - At $p=16$ and $p=25$, performance recovers significantly. At $p=25$, execution time drops to **0.21s** ($13.4\times$ speedup), demonstrating that despite communication overhead, the parallel solver effectively handles large-scale 2D domains.
-    - The overall efficiency trend (gradual decline at higher counts) is driven by the decreasing computation-to-communication ratio.
+*   **Observation**:
+    - At $p=4$, we achieve a **2x speedup**. Ideally it would be 4x, but memory bandwidth limits the gain on a unified memory architecture (typical for stencil codes on Mac).
+    - At $p=9$, **speedup plateaus**. Adding more processes beyond the physical core count (8) yields *zero* benefit, as the system is fully saturated.
+    - This creates a perfect experimental demonstration of the **Memory Wall**: throwing more compute (processes) at the problem fails because the bottleneck is data movement, not arithmetic.
 
-*   **Conclusion**: The MPI implementation successfully scales on the UPPMAX cluster, utilizing available cores to reduce time-to-solution significantly compared to serial execution.
+*   **Conclusion**: The local Mac experiments successfully demonstrate the limitations of shared-memory parallelism for bandwidth-heavy algorithms.
 
 ---
 
@@ -190,7 +184,9 @@ To verify the overall computational burden, we measure the **Total Solving Time*
 
 ## 6. Bottleneck Analysis
 
-Why does strong scaling plateau? We use the **Timing Breakdown** to diagnose.
+Why does strong scaling plateau? To understand the asymptotic behavior of the algorithm, we reference the **Timing Breakdown from the Cluster Environment ($p=25$)**, where communication costs become visible distinct from cache contention.
+
+> **Note**: This data serves as a reference for theoretical bottleneck analysis. Local execution allows only up to $p=9$, where memory bandwidth masks these communication details.
 
 <p align="center">
   <img src="timing_breakdown.png" width="600">
@@ -209,8 +205,8 @@ Why does strong scaling plateau? We use the **Timing Breakdown** to diagnose.
 **Analysis via Model**:
 1.  **$T_{comp}$** drops as expected.
 2.  **Communication grows**: At $p=25$, communication accounts for **57.1%** of the total runtime.
-    *   *Reason*: `MPI_Allreduce` is sensitive to system jitter and network latency as the message size per process becomes very small.
-3.  **Latency Bound**: For fixed $n$, as $p \uparrow$, the message size per halo exchange shrinks, but latency $\alpha$ remains constant. $T_{halo}$ stops scaling.
+    *   *Reason*: `MPI_Allreduce` is sensitive to system jitter and synchronization overhead as the message size per process becomes very small.
+3.  **Sync Overhead Bound**: For fixed $n$, as $p \uparrow$, the message size per halo exchange shrinks, but synchronization costs remain. $T_{halo}$ stops scaling.
 
 
 ---
@@ -245,20 +241,5 @@ The trade-off is that Block-Jacobi only captures intra-subdomain coupling and ig
     *   **Benefit**: Hides $T_{reduce} \approx \alpha \log p$.
     *   **Cost**: Introduces significant computational overhead (approx. $2\times$ more vector AXPY operations) to maintain auxiliary variables for pipelining.
 *   **Decision**: We **did not implement** this optimization for the current scale.
-    *   **Reasoning**: Our complexity model and strong scaling data (Section 4.2) show that at $p=25$, the "Efficiency Loss" is primarily due to the shrinking computation-to-communication ratio, but the absolute latency is still on the order of microseconds. The overhead of extra vector operations would likely **degrade** performance rather than improve it.
-    *   **Conclusion**: Pipelined CG is only theoretically justified in **massive-scale regimes** (e.g., $p > 1000$) or on high-latency networks where $T_{reduce}$ dominates the total iteration time. For our $p=25$ UPPMAX allocation, the "Standard CG + Preconditioning" approach is the optimal engineering choice.
-
----
-
-## Reproducing Results
-
-```bash
-# 1. Build the solvers (CG, PCG, PipelinedCG)
-make
-
-# 2. Generate Scaling Data (Cluster TSV provided in results/imported/)
-# The following scripts generate the plots currently used in the report:
-python3 scripts/visualize_benchmark.py results/imported/weak_scaling.tsv
-python3 scripts/visualize_convergence.py
-python3 scripts/visualize_timing_breakdown.py
-```
+    *   **Reasoning**: Our weak scaling analysis (Section 4.1) identifies **Memory Bandwidth** as the primary bottleneck. Pipelined CG hides latency at the cost of **increased memory traffic** (extra vector AXPYs). In a memory-bound environment (like our local workstation), adding more memory operations to hide synchronization costs would likely **degrade** performance rather than improve it.
+    *   **Conclusion**: Pipelined CG is theoretically justified only when **Network Latency** dominates processing time (e.g., massive clusters with $p > 1000$). For our local memory-bound workload, the "Standard CG + Preconditioning" approach is the optimal engineering choice.

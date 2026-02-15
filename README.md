@@ -17,11 +17,11 @@ For detailed performance analysis, benchmarks, and technical discussion, see the
 
 ## Performance Results
 
-- **Weak Scaling**: Achieves ~39% efficiency at 25 processes on the UPPMAX cluster (512x512 local grid per process)
-- **Strong Scaling**: Achieves **13.4x speedup** on 25 cores (UPPMAX cluster, n=2048)
+- **Weak Scaling**: Analysis confirms **Memory Bandwidth Saturation** determines performance on local hardware. At $p=9$, efficiency drops to ~24% due to core oversubscription and shared memory contention.
+- **Strong Scaling**: Achieves **2x speedup** on 4 cores (Mac M1/Intel), clearly demonstrating the **Memory Wall** bottleneck typical of stencil computations on unified memory architectures.
 - **Algorithm Efficiency**: Demonstrates optimal $O(n)$ iteration scaling characteristic of CG methods
-- **Algorithmic Extensions**: Block-Jacobi preconditioning reduces iteration count by ~30% with zero additional communication overhead.
-- **Numerical Stability**: High-precision verification with identical results across different MPI implementations and scale factors
+- **Algorithmic Extensions**: Block-Jacobi preconditioning reduces iteration count by ~30%.
+- **Numerical Stability**: High-precision verification with identical results across different MPI implementations.
 - **Memory Optimization**: 10x memory savings through matrix-free stencil implementation
 
 ## Conjugate Gradient Algorithm
@@ -59,7 +59,7 @@ The CG method is particularly well-suited for:
 
 ### Prerequisites
 *   GCC / Clang
-*   OpenMPI / MPICH
+*   OpenMPI (`brew install open-mpi`)
 
 ```bash
 # Compilation
