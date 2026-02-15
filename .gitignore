@@ -1,5 +1,6 @@
 # Binaries
 CG
+PCG
 *.o
 *.out
 

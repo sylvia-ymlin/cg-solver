@@ -65,7 +65,10 @@ The CG method is particularly well-suited for:
 # Compilation
 make
 # Run with $P$ processes (must be a perfect square, e.g., 4, 16, 64):
-# mpirun -n procs ./CG grid_size max_iter tol
+# Usage
+mpirun -n <np> ./PCG <n> [max_iter] [tol] [jacobi_iters]
+# Example: 10 preconditioning steps
+mpirun -n 4 ./PCG 1024 1000 1e-6 10
 
 # Fixed iterations (timing mode, default 200 iters):
 mpirun -n 16 ./CG 1000
@@ -90,4 +93,21 @@ Iterations: 281
 Converged: yes
 Residual: 9.8156129832e-07
 L2_Error: 6.6555733901e-08
+```
+```
+
+## Reproducing Results
+
+The project includes a unified benchmark script `scripts/benchmark.py` to generate all performance data and plots.
+
+```bash
+# 1. Compile
+make
+
+# 2. Run Benchmarks
+# Options: scaling (default), convergence, comparison, or all
+python3 scripts/benchmark.py all
+
+# 3. View Report
+open docs/REPORT.md
 ```

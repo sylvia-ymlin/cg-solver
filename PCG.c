@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
 
   if (argc < 2) {
     if (myid == 0)
-      printf("Usage: %s <n> [max_iter] [tol]\n", argv[0]);
+      printf("Usage: %s <n> [max_iter] [tol] [jacobi_iters]\n", argv[0]);
     MPI_Finalize();
     return 1;
   }
@@ -20,6 +20,7 @@ int main(int argc, char **argv) {
   int n = atoi(argv[1]);
   int max_iter = (argc >= 3) ? atoi(argv[2]) : DEFAULT_MAX_ITER;
   double tol = (argc >= 4) ? atof(argv[3]) : 0.0;
+  int jacobi_iters = (argc >= 5) ? atoi(argv[4]) : 5;
 
   GridContext ctx;
   SetupGrid(n, &ctx);
@@ -102,12 +103,12 @@ int main(int argc, char **argv) {
       break;
     }
 
-    // Mz = r (Block-Jacobi with 5 iterations)
+    // Mz = r (Block-Jacobi with implicit 5 iterations or specified)
     double *z_new =
         (double *)malloc(ctx.numRows * ctx.numCols * sizeof(double));
     for (int i = 0; i < ctx.numRows * ctx.numCols; i++)
       z[i] = 0.0;
-    for (int it = 0; it < 5; it++) {
+    for (int it = 0; it < jacobi_iters; it++) {
       for (int i = 0; i < ctx.numRows; i++) {
         for (int j = 0; j < ctx.numCols; j++) {
           double up = (i > 0) ? z[IDX(i - 1, j, ctx.numCols)] : 0.0;

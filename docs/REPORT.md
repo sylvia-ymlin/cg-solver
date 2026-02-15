@@ -97,6 +97,10 @@ We validate the theoretical model against experimental data.
 ### Experimental Environment
 > **Note**: The following scaling results (Sections 4.1 & 4.2) are bounded by the local workstation environment (MacOS). While limited by a single node's resources, it successfully captures the fundamental strong/weak scaling behaviors and the memory bandwidth bottlenecks inherent to the algorithm.
 
+# 2. Generate Scaling Data (Local Mac)
+# The following script runs the benchmarks and generates the plots:
+python3 scripts/benchmark.py all
+
 All experimental results were obtained on a **Local Workstation (MacOS)**.
 
 *   **System**: MacOS (Apple Silicon / Intel).
@@ -235,11 +239,18 @@ The trade-off is that Block-Jacobi only captures intra-subdomain coupling and ig
   <img src="cg_vs_pcg_iterations.png" width="60%">
 </p>
 
-### 7.2 System Optimization: Pipelined CG (Feasibility Analysis)
+### 7.2 System Optimization: Pipelined CG (Ablation Study)
+
 *   **Concept**: Pipelined CG (e.g., Chronopoulos-Gear variant) hides global reduction latency ($T_{reduce}$) by restructuring dependencies to overlap `MPI_Iallreduce` with local matrix-vector products ($Ap$).
-*   **Cost-Benefit Analysis**:
-    *   **Benefit**: Hides $T_{reduce} \approx \alpha \log p$.
-    *   **Cost**: Introduces significant computational overhead (approx. $2\times$ more vector AXPY operations) to maintain auxiliary variables for pipelining.
-*   **Decision**: We **did not implement** this optimization for the current scale.
-    *   **Reasoning**: Our weak scaling analysis (Section 4.1) identifies **Memory Bandwidth** as the primary bottleneck. Pipelined CG hides latency at the cost of **increased memory traffic** (extra vector AXPYs). In a memory-bound environment (like our local workstation), adding more memory operations to hide synchronization costs would likely **degrade** performance rather than improve it.
-    *   **Conclusion**: Pipelined CG is theoretically justified only when **Network Latency** dominates processing time (e.g., massive clusters with $p > 1000$). For our local memory-bound workload, the "Standard CG + Preconditioning" approach is the optimal engineering choice.
+*   **Hypothesis**: In high-latency environments, this hiding improves time-to-solution. In memory-bound environments, the extra vector operations degrade performance.
+
+<p align="center">
+  <img src="pipelined_ablation.png" width="800">
+</p>
+
+*   **Experimental Evidence**: We compared a Pipelined CG implementation against the standard baseline.
+    *   **Result**: Pipelined CG was consistently **slower** across all grid sizes. At $n=2048$, the solving time increased from **27.1s** (Standard CG) to **34.5s** (Pipelined CG), a **~27% performance degradation**.
+*   **Analysis**:
+    *   **Mechanism**: The pipelined formulation requires maintaining auxiliary vectors ($w, s, z, q$) and performing additional AXPY operations to reconstruct the search directions without immediate dot products.
+    *   **Bottleneck Confirmation**: This result strongly validates the **Memory Wall** hypothesis (Section 4.1). on the local machine, the bottleneck is not the latency of the dot product (which is fast in shared memory) but the **memory bandwidth** required to stream vectors through the CPU. Adding more memory-intensive operations to "hide" negligible latency simply exacerbates the bandwidth saturation.
+*   **Conclusion**: Pipelined CG is detrimental in this environment. Optimization efforts should focus on **Preconditioning** (reducing iterations) rather than Latency Hiding.
