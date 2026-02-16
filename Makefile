@@ -23,3 +23,4 @@ PCG: PCG.c $(UTILS)
 
 clean:
 	$(RM) $(BINS) $(UTILS)
+	$(RM) -rf *.dSYM

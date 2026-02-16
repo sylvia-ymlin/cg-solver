@@ -71,18 +71,6 @@ double MatrixDotProduct(double *A, double *B, int rows, int cols, int strideA,
   return sum;
 }
 
-void MatrixAdd(double *A, double *B, double a, double b, double *C, int rows,
-               int cols, int strideA, int strideB, int strideC, int offAr,
-               int offAc, int offBr, int offBc, int offCr, int offCc) {
-  for (int i = 0; i < rows; i++) {
-    for (int j = 0; j < cols; j++) {
-      double valA = A[IDX(i + offAr, j + offAc, strideA)];
-      double valB = B[IDX(i + offBr, j + offBc, strideB)];
-      C[IDX(i + offCr, j + offCc, strideC)] = a * valA + b * valB;
-    }
-  }
-}
-
 void exchangeBoundaryValues(double *d, int numRows, int numCols, int stride,
                             int *neighborProcs, double *sendBuf,
                             double *recvBuf) {

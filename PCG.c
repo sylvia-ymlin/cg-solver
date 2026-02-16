@@ -94,10 +94,19 @@ int main(int argc, char **argv) {
     MPI_Allreduce(MPI_IN_PLACE, &denom, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     double alpha = rho0 / denom;
 
-    MatrixAdd(u, d, 1.0, alpha, u, ctx.numRows, ctx.numCols, ctx.numCols,
-              extCols, ctx.numCols, 0, 0, 1, 1, 0, 0);
-    MatrixAdd(g, q, 1.0, -alpha, g, ctx.numRows, ctx.numCols, ctx.numCols,
-              ctx.numCols, ctx.numCols, 0, 0, 0, 0, 0, 0);
+    // u = u + alpha * d
+    for (int i = 0; i < ctx.numRows; i++) {
+      for (int j = 0; j < ctx.numCols; j++) {
+        u[IDX(i, j, ctx.numCols)] += alpha * d[IDX(i + 1, j + 1, extCols)];
+      }
+    }
+
+    // g = g - alpha * q
+    for (int i = 0; i < ctx.numRows; i++) {
+      for (int j = 0; j < ctx.numCols; j++) {
+        g[IDX(i, j, ctx.numCols)] -= alpha * q[IDX(i, j, ctx.numCols)];
+      }
+    }
 
     double r_norm_sq = MatrixDotProduct(g, g, ctx.numRows, ctx.numCols,
                                         ctx.numCols, ctx.numCols, 0, 0);
@@ -131,8 +140,13 @@ int main(int argc, char **argv) {
                                    ctx.numCols, 0, 0);
     MPI_Allreduce(MPI_IN_PLACE, &rho1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     double beta = rho1 / rho0;
-    MatrixAdd(z, d, 1.0, beta, d, ctx.numRows, ctx.numCols, ctx.numCols,
-              extCols, extCols, 0, 0, 1, 1, 1, 1);
+    // d = z + beta * d
+    for (int i = 0; i < ctx.numRows; i++) {
+      for (int j = 0; j < ctx.numCols; j++) {
+        d[IDX(i + 1, j + 1, extCols)] =
+            z[IDX(i, j, ctx.numCols)] + beta * d[IDX(i + 1, j + 1, extCols)];
+      }
+    }
     rho0 = rho1;
     iter++;
   }
