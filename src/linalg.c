@@ -79,13 +79,7 @@ void apply_stencil(Vector *q, Vector *p, SolverContext *ctx) {
       int left = IDX(i + 1, j, stride);
       int right = IDX(i + 1, j + 2, stride);
 
-      pq[IDX(i, j, cols)] =
-          4 * pp[c] - (pp[up] + pp[down] + pp[left] + pp[right]);
-
-      // NOTE: The original logic in CG_baseline used q[IDX(i,j, ctx.numCols)]
-      // but p used ghost indices. We need to be careful with q's indexing.
-      // In our Vector struct, q->data typically has ghost cells too.
-      // Let's store result at proper location in q->data
+      // 5-point stencil: q = A*p where A is the discrete Laplacian
       pq[c] = 4 * pp[c] - (pp[up] + pp[down] + pp[left] + pp[right]);
     }
   }
