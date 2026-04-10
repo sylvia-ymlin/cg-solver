@@ -22,8 +22,6 @@
 #define DEFAULT_MAX_ITER 200
 #define DEFAULT_TOL 1e-6
 
-double MatrixDotProduct(double** A, double** B, int rows, int cols);
-void MatrixAdd(double** A, double** B, double a, double b, double** C, int rows, int cols);
 void exchangeBoundaryValues(double** d, int numRows, int numCols, int* neighborProcs);
 void ApplyStencil(double** q, double** p, int numRows, int numCols);
 void ApplyJacobiPrecond(double** z, double** r, int numRows, int numCols, int iters);
@@ -140,24 +138,23 @@ int main(int argc, char** argv) {
     // 1. PCG initialization
     // 1.1 x = 0 (already zero from calloc)
     // 1.2 r = b
-    for (int i = 0; i < numRows; i++) {
-        for (int j = 0; j < numCols; j++) {
+    for (int i = 0; i < numRows; i++)
+        for (int j = 0; j < numCols; j++)
             r[i + 1][j + 1] = b[i + 1][j + 1];
-        }
-    }
 
     // 1.3 z = M^{-1} r
     ApplyJacobiPrecond(z, r, numRows, numCols, jacobi_iters);
 
     // 1.4 p = z
-    for (int i = 0; i < numRows; i++) {
-        for (int j = 0; j < numCols; j++) {
+    for (int i = 0; i < numRows; i++)
+        for (int j = 0; j < numCols; j++)
             p[i + 1][j + 1] = z[i + 1][j + 1];
-        }
-    }
 
     // 1.5 rho = r^T * z
-    double rho = MatrixDotProduct(r, z, numRows, numCols);
+    double rho = 0.0;
+    for (int i = 0; i < numRows; i++)
+        for (int j = 0; j < numCols; j++)
+            rho += r[i + 1][j + 1] * z[i + 1][j + 1];
     MPI_Allreduce(MPI_IN_PLACE, &rho, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     // 2. PCG iteration
@@ -169,18 +166,28 @@ int main(int argc, char** argv) {
         ApplyStencil(q, p, numRows, numCols);
 
         // 2.2 alpha = rho / p^T * q
-        dotProduct = MatrixDotProduct(p, q, numRows, numCols);
+        dotProduct = 0.0;
+        for (int i = 0; i < numRows; i++)
+            for (int j = 0; j < numCols; j++)
+                dotProduct += p[i + 1][j + 1] * q[i + 1][j + 1];
         MPI_Allreduce(MPI_IN_PLACE, &dotProduct, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         alpha = rho / dotProduct;
 
         // 2.3 x = x + alpha * p
-        MatrixAdd(x, p, 1.0, alpha, x, numRows, numCols);
+        for (int i = 0; i < numRows; i++)
+            for (int j = 0; j < numCols; j++)
+                x[i + 1][j + 1] += alpha * p[i + 1][j + 1];
 
         // 2.4 r = r - alpha * q
-        MatrixAdd(r, q, 1.0, -alpha, r, numRows, numCols);
+        for (int i = 0; i < numRows; i++)
+            for (int j = 0; j < numCols; j++)
+                r[i + 1][j + 1] -= alpha * q[i + 1][j + 1];
 
-        // 2.5 Check convergence
-        dotProduct = MatrixDotProduct(r, r, numRows, numCols);
+        // 2.5 Check convergence: ||r||
+        dotProduct = 0.0;
+        for (int i = 0; i < numRows; i++)
+            for (int j = 0; j < numCols; j++)
+                dotProduct += r[i + 1][j + 1] * r[i + 1][j + 1];
         MPI_Allreduce(MPI_IN_PLACE, &dotProduct, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         if (tol > 0.0 && sqrt(dotProduct) < tol) {
             iter++;
@@ -191,14 +198,19 @@ int main(int argc, char** argv) {
         ApplyJacobiPrecond(z, r, numRows, numCols, jacobi_iters);
 
         // 2.7 rho_new = r^T * z
-        rho_new = MatrixDotProduct(r, z, numRows, numCols);
+        rho_new = 0.0;
+        for (int i = 0; i < numRows; i++)
+            for (int j = 0; j < numCols; j++)
+                rho_new += r[i + 1][j + 1] * z[i + 1][j + 1];
         MPI_Allreduce(MPI_IN_PLACE, &rho_new, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         // 2.8 beta = rho_new / rho
         beta = rho_new / rho;
 
         // 2.9 p = z + beta * p
-        MatrixAdd(z, p, 1.0, beta, p, numRows, numCols);
+        for (int i = 0; i < numRows; i++)
+            for (int j = 0; j < numCols; j++)
+                p[i + 1][j + 1] = z[i + 1][j + 1] + beta * p[i + 1][j + 1];
 
         // 2.10 rho = rho_new
         rho = rho_new;
@@ -244,28 +256,6 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-// Compute the local dot product of interior elements: sum of A[i][j] * B[i][j].
-// The caller is responsible for the MPI_Allreduce to get the global sum.
-double MatrixDotProduct(double** A, double** B, int rows, int cols) {
-    double sum = 0.0;
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            sum += A[i + 1][j + 1] * B[i + 1][j + 1];
-        }
-    }
-    return sum;
-}
-
-// Compute C = a*A + b*B on interior elements. Safe for in-place use (C may
-// alias A or B) because each element is read before it is overwritten.
-void MatrixAdd(double** A, double** B, double a, double b, double** C, int rows, int cols) {
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            C[i + 1][j + 1] = a * A[i + 1][j + 1] + b * B[i + 1][j + 1];
-        }
-    }
-}
-
 // Exchange interior boundary rows/columns with neighboring processes.
 // numRows and numCols include the 2 ghost layers (i.e. extRows, extCols).
 void exchangeBoundaryValues(double** d, int numRows, int numCols, int* neighborProcs) {
@@ -284,27 +274,23 @@ void exchangeBoundaryValues(double** d, int numRows, int numCols, int* neighborP
     }
     if (neighborProcs[2] != -1) {  // left
         double leftSend[innerRows], leftRecv[innerRows];
-        for (int i = 0; i < innerRows; i++) {
+        for (int i = 0; i < innerRows; i++)
             leftSend[i] = d[i + 1][1];
-        }
         MPI_Sendrecv(leftSend, innerRows, MPI_DOUBLE, neighborProcs[2], 0,
                      leftRecv, innerRows, MPI_DOUBLE, neighborProcs[2], 0,
                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (int i = 0; i < innerRows; i++) {
+        for (int i = 0; i < innerRows; i++)
             d[i + 1][0] = leftRecv[i];
-        }
     }
     if (neighborProcs[3] != -1) {  // right
         double rightSend[innerRows], rightRecv[innerRows];
-        for (int i = 0; i < innerRows; i++) {
+        for (int i = 0; i < innerRows; i++)
             rightSend[i] = d[i + 1][numCols - 2];
-        }
         MPI_Sendrecv(rightSend, innerRows, MPI_DOUBLE, neighborProcs[3], 0,
                      rightRecv, innerRows, MPI_DOUBLE, neighborProcs[3], 0,
                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (int i = 0; i < innerRows; i++) {
+        for (int i = 0; i < innerRows; i++)
             d[i + 1][numCols - 1] = rightRecv[i];
-        }
     }
 }
 
@@ -330,18 +316,17 @@ void ApplyJacobiPrecond(double** z, double** r, int numRows, int numCols, int it
 
     // Allocate a scratch buffer for the Jacobi iteration
     double** buf = (double**)malloc(extRows * sizeof(double*));
-    for (i = 0; i < extRows; i++) {
+    for (i = 0; i < extRows; i++)
         buf[i] = (double*)calloc(extCols, sizeof(double));
-    }
 
     // Initialize z = D^{-1} r, where D is the stencil diagonal (4.0)
-    for (i = 0; i < extRows; i++) {
-        for (j = 0; j < extCols; j++) {
+    for (i = 0; i < extRows; i++)
+        for (j = 0; j < extCols; j++)
             z[i][j] = r[i][j] / 4.0;
-        }
-    }
 
-    // Alternately write into buf and z; cur always holds the latest result
+    // Double-buffer between z and buf so each iteration reads the previous
+    // result without overwriting it in-place (Jacobi requires old values).
+    // cur always points to the latest result; nxt is the write target.
     double** cur = z;
     double** nxt = buf;
     for (k = 0; k < iters; k++) {
@@ -357,15 +342,12 @@ void ApplyJacobiPrecond(double** z, double** r, int numRows, int numCols, int it
 
     // If the result is in buf (odd iters), copy it back into z
     if (cur != z) {
-        for (i = 0; i < extRows; i++) {
-            for (j = 0; j < extCols; j++) {
+        for (i = 0; i < extRows; i++)
+            for (j = 0; j < extCols; j++)
                 z[i][j] = cur[i][j];
-            }
-        }
     }
 
-    for (i = 0; i < extRows; i++) {
+    for (i = 0; i < extRows; i++)
         free(buf[i]);
-    }
     free(buf);
 }

@@ -74,8 +74,8 @@ def run_scaling():
     with open(f"{RESULTS_DIR}/strong_scaling.json", "w") as f:
         json.dump(strong_results, f, indent=2)
 
-    plotting.plot_weak_scaling()
-    plotting.plot_strong_scaling()
+    plotting.plot_weak_scaling(f"{RESULTS_DIR}/weak_scaling.json", f"{RESULTS_DIR}/weak_scaling.png")
+    plotting.plot_strong_scaling(f"{RESULTS_DIR}/strong_scaling.json", f"{RESULTS_DIR}/strong_scaling.png")
 
 
 def run_convergence():
